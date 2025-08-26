@@ -208,6 +208,39 @@ static void ShowError(HWND hWnd, ScalingError error) noexcept {
 	Logger::Get().Error(fmt::format("缩放失败\n\t错误码: {}", (int)error));
 }
 
+static bool IsPopupWindow(HWND hwndPopup, HWND hwndOwner) noexcept {
+	// 检查所有者关系
+	{
+		HWND hwndCur = hwndPopup;
+		while (bool(hwndCur = GetWindowOwner(hwndCur))) {
+			if (hwndCur == hwndOwner) {
+				return true;
+			}
+		}
+	}
+	
+	// 有些游戏不用所有者关系来实现弹窗，而是将主窗口禁用，做到和模态弹窗差不多的效果。
+	// 这不可能准确检测，只能尽可能增加限制以减少误判，我们检查三个条件：
+	// 
+	// 1. 主窗口处于禁用状态
+	// 2. 两个窗口位于同一个进程
+	// 3. 主窗口没有传统意义的弹窗
+
+	if (IsWindowEnabled(hwndOwner)) {
+		return false;
+	}
+
+	DWORD pid1 = 0;
+	DWORD pid2 = 0;
+	GetWindowThreadProcessId(hwndPopup, &pid1);
+	GetWindowThreadProcessId(hwndOwner, &pid2);
+	if (pid1 != pid2) {
+		return false;
+	}
+
+	return !GetWindow(hwndOwner, GW_ENABLEDPOPUP);
+}
+
 static bool IsReadyForScaling(HWND hwndFore) noexcept {
 	// GH#1148
 	// 有些游戏刚启动时将窗口创建在屏幕外，初始化完成后再移到屏幕内
@@ -236,10 +269,11 @@ fire_and_forget ScalingService::_CheckForegroundTimer_Tick(ThreadPoolTimer const
 		co_return;
 	}
 
-	// 检查 _hwndCurSrc 使得缩放或等待状态下避免再次缩放源窗口
 	if (hwndFore != _hwndCurSrc) {
 		// 检查自动缩放
-		if (const Profile* profile = ProfileService::Get().GetProfileForWindow(hwndFore, true)) {
+		const Profile* profile = ProfileService::Get().GetProfileForWindow(hwndFore, true);
+		// 正在缩放窗口时禁止自动缩放它的弹窗
+		if (profile && !(_hwndCurSrc && IsPopupWindow(hwndFore, _hwndCurSrc))) {
 			// 如果窗口处于某种中间状态则跳过此次检查
 			if (!IsReadyForScaling(hwndFore)) {
 				co_return;
