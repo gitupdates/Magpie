@@ -272,8 +272,8 @@ void CursorDrawer::Draw(ID3D11Texture2D* backBuffer, POINT drawOffset) noexcept 
 			UINT destLeft = UINT(std::max(0l, viewportRect.left - cursorRect.left));
 			UINT destTop = UINT(std::max(0l, viewportRect.top - cursorRect.top));
 
-			assert(destLeft + srcBox.right - srcBox.left <= cursorSize.cx);
-			assert(destTop + srcBox.bottom - srcBox.top <= cursorSize.cy);
+			assert(LONG(destLeft + srcBox.right - srcBox.left) <= cursorSize.cx);
+			assert(LONG(destTop + srcBox.bottom - srcBox.top) <= cursorSize.cy);
 
 			d3dDC->CopySubresourceRegion(_tempCursorTexture.get(),
 				0, destLeft, destTop, 0, backBuffer, 0, &srcBox);
