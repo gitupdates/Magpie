@@ -41,6 +41,7 @@ struct Profile {
 		customInitialWindowedScaleFactor = other.customInitialWindowedScaleFactor;
 		cursorScaling = other.cursorScaling;
 		customCursorScaling = other.customCursorScaling;
+		autoHideCursorDelay = other.autoHideCursorDelay;
 		cropping = other.cropping;
 		captureMethod = other.captureMethod;
 		graphicsCardId = other.graphicsCardId;
@@ -52,6 +53,7 @@ struct Profile {
 		
 		isCroppingEnabled = other.isCroppingEnabled;
 		isFrameRateLimiterEnabled = other.isFrameRateLimiterEnabled;
+		isAutoHideCursorEnabled = other.isAutoHideCursorEnabled;
 	}
 
 	DEFINE_FLAG_ACCESSOR(Is3DGameMode, ScalingFlags::Is3DGameMode, scalingFlags)
