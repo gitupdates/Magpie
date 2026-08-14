@@ -749,10 +749,14 @@ bool OverlayDrawer::_DrawToolbar(uint32_t fps, int& itemId) noexcept {
 		ImGui::SameLine();
 		const std::string& screenshotStr = _GetResourceString(L"Overlay_Toolbar_TakeScreenshot");
 		const std::string& screenshotDescStr = _GetResourceString(L"Overlay_Toolbar_TakeScreenshot_Description");
-		if (drawButton(OverlayHelper::SegoeIcons::Camera, screenshotStr.c_str(), screenshotDescStr.c_str())) {
-			const std::vector<const EffectDesc*>& effectDescs =
-				ScalingWindow::Get().Renderer().ActiveEffectDescs();
-			ScalingWindow::Get().Renderer().TakeScreenshot((uint32_t)effectDescs.size() - 1);
+
+		// 提示文字追加快捷键
+		const OverlayOptions& overlayOptions = ScalingWindow::Get().Options().overlayOptions;
+		std::string screenshotButtonStr =
+			StrHelper::Concat(screenshotStr, " (", overlayOptions.takeScreenshotShortcut, ")");
+		
+		if (drawButton(OverlayHelper::SegoeIcons::Camera, screenshotButtonStr.c_str(), screenshotDescStr.c_str())) {
+			ScalingWindow::Get().TakeScreenshot();
 		}
 		// 截图按钮右键菜单
 		if (ImGui::BeginPopupContextItem()) {
@@ -857,7 +861,13 @@ bool OverlayDrawer::_DrawToolbar(uint32_t fps, int& itemId) noexcept {
 				OverlayHelper::SegoeIcons::FullScreen : OverlayHelper::SegoeIcons::Favicon;
 			const std::string& switchScalingStr = _GetResourceString(
 				isWindowedMode ? L"Overlay_Toolbar_SwitchToFullscreen" : L"Overlay_Toolbar_SwitchToWindowed");
-			if (drawButton(icon, switchScalingStr.c_str())) {
+
+			// 提示文字追加快捷键
+			const std::string& scaleShortcut =
+				isWindowedMode ? overlayOptions.scaleShortcut : overlayOptions.windowedModeScaleShortcut;
+			std::string switchScalingButtonStr = StrHelper::Concat(switchScalingStr, " (", scaleShortcut, ")");
+
+			if (drawButton(icon, switchScalingButtonStr.c_str())) {
 				ScalingWindow::Dispatcher().TryEnqueue([]() {
 					ScalingWindow::Get().ToggleScaling(!ScalingWindow::Get().Options().IsWindowedMode());
 				});

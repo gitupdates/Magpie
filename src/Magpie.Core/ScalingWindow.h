@@ -38,6 +38,8 @@ public:
 
 	void SwitchToolbarState() noexcept;
 
+	void TakeScreenshot() noexcept;
+
 	void Render() noexcept;
 
 	const RECT& RendererRect() const noexcept {
