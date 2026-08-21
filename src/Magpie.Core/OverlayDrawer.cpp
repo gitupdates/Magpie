@@ -855,8 +855,9 @@ bool OverlayDrawer::_DrawToolbar(uint32_t fps, int& itemId) noexcept {
 			ImGui::SameLine();
 		}
 
+		const bool isWindowedMode = ScalingWindow::Get().Options().IsWindowedMode();
+
 		{
-			const bool isWindowedMode = ScalingWindow::Get().Options().IsWindowedMode();
 			const ImWchar icon = isWindowedMode ?
 				OverlayHelper::SegoeIcons::FullScreen : OverlayHelper::SegoeIcons::Favicon;
 			const std::string& switchScalingStr = _GetResourceString(
@@ -881,7 +882,14 @@ bool OverlayDrawer::_DrawToolbar(uint32_t fps, int& itemId) noexcept {
 
 		const std::string& closeStr = _GetResourceString(L"Overlay_Toolbar_Close");
 		const std::string& closeDescStr = _GetResourceString(L"Overlay_Toolbar_Close_Description");
-		if (drawButton(OverlayHelper::SegoeIcons::Cancel, closeStr.c_str(), closeDescStr.c_str())) {
+
+		// 提示文字追加快捷键
+		const std::string& closeShortcut =
+			isWindowedMode ? overlayOptions.windowedModeScaleShortcut : overlayOptions.scaleShortcut;
+		std::string closeButtonStr =
+			StrHelper::Concat(closeStr, " (", closeShortcut, ")");
+
+		if (drawButton(OverlayHelper::SegoeIcons::Cancel, closeButtonStr.c_str(), closeDescStr.c_str())) {
 			ScalingWindow::Dispatcher().TryEnqueue([]() {
 				ScalingWindow::Get().Stop();
 			});
