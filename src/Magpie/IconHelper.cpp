@@ -181,7 +181,7 @@ static HICON GetHIconOfWnd(HWND hWnd, LONG preferredSize) noexcept {
 	return GetHIconOfWnd(hwndOwner, preferredSize);
 }
 
-SoftwareBitmap IconHelper::ExtractIconFormWindow(HWND hWnd, uint32_t preferredSize) {
+SoftwareBitmap IconHelper::ExtractIconFromWindow(HWND hWnd, uint32_t preferredSize) {
 	if (HICON hIcon = GetHIconOfWnd(hWnd, (LONG)preferredSize)) {
 		return HIcon2SoftwareBitmap(hIcon);
 	}

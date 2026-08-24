@@ -30,8 +30,8 @@ ScalingModeItem::ScalingModeItem(uint32_t index, bool isInitialExpanded)
 		std::vector<IInspectable> linkedProfiles;
 		const Profile& defaultProfile = AppSettings::Get().DefaultProfile();
 		if (defaultProfile.scalingMode == (int)index) {
-			LocalizationService& ls = LocalizationService::Get();
-			linkedProfiles.push_back(box_value(ls.GetLocalizedString(L"Root_Defaults/Content")));
+			linkedProfiles.push_back(box_value(LocalizationService::Get()
+				.GetLocalizedString(L"Root_Defaults/Content")));
 		}
 		for (const Profile& profile : AppSettings::Get().Profiles()) {
 			if (profile.scalingMode == (int)index) {
@@ -267,8 +267,8 @@ hstring ScalingModeItem::Description() const noexcept {
 			result += EffectHelper::GetDisplayName(effect.name);
 		} else {
 			result += L'(';
-			LocalizationService& ls = LocalizationService::Get();
-			result += ls.GetLocalizedString(L"ScalingModes_Description_UnknownEffect");
+			result += LocalizationService::Get()
+				.GetLocalizedString(L"ScalingModes_Description_UnknownEffect");
 			result += L')';
 		}
 	}
