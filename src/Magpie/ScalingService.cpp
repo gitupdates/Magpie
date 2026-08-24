@@ -1,13 +1,13 @@
 #include "pch.h"
+#include "ScalingService.h"
 #include "App.h"
 #include "AppSettings.h"
-#include "CommonSharedConstants.h"
 #include "EffectsService.h"
+#include "LocalizationService.h"
 #include "Logger.h"
 #include "ProfileService.h"
 #include "ScalingMode.h"
 #include "ScalingModesService.h"
-#include "ScalingService.h"
 #include "ShortcutService.h"
 #include "ToastService.h"
 #include "TouchHelper.h"
@@ -200,10 +200,9 @@ static void ShowError(HWND hWnd, ScalingError error) noexcept {
 		return;
 	}
 
-	ResourceLoader resourceLoader =
-		ResourceLoader::GetForViewIndependentUse(CommonSharedConstants::APP_RESOURCE_MAP_ID);
-	hstring title = isFail ? resourceLoader.GetString(L"Message_ScalingFailed") : hstring{};
-	ToastService::Get().ShowMessageOnWindow(title, resourceLoader.GetString(key), hWnd);
+	LocalizationService& ls = LocalizationService::Get();
+	hstring title = isFail ? ls.GetLocalizedString(L"Message_ScalingFailed") : hstring{};
+	ToastService::Get().ShowMessageOnWindow(title, ls.GetLocalizedString(key), hWnd);
 	Logger::Get().Error(fmt::format("缩放失败\n\t错误码: {}", (int)error));
 }
 

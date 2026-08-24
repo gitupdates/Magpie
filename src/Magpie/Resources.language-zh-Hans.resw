@@ -925,7 +925,7 @@
   <data name="Home_Toolbar_ScreenshotSaveDirectory_Change.Content" xml:space="preserve">
     <value>更改</value>
   </data>
-  <data name="Dialog_SetlectScreenshotSaveDirectory_Title" xml:space="preserve">
+  <data name="Dialog_SelectScreenshotSaveDirectory_Title" xml:space="preserve">
     <value>选择截图保存目录</value>
   </data>
   <data name="Message_ScreenshotSaved" xml:space="preserve">

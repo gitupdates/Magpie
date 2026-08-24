@@ -159,9 +159,8 @@ static HRESULT CALLBACK TaskDialogCallback(
 	LONG_PTR /*lpRefData*/
 ) {
 	if (msg == TDN_CREATED) {
-		// 将任务栏图标替换为 Magpie 的图标
-		// GetModuleHandle 获取 exe 文件的句柄
-		HINSTANCE hInst = GetModuleHandle(nullptr);
+		// 将任务栏图标替换为软件图标
+		HINSTANCE hInst = wil::GetModuleInstanceHandle();
 		ReplaceIcon(hInst, hWnd, true);
 		ReplaceIcon(hInst, hWnd, false);
 
@@ -174,10 +173,9 @@ static HRESULT CALLBACK TaskDialogCallback(
 }
 
 static void ShowErrorMessage(const wchar_t* mainInstruction, const wchar_t* content) noexcept {
-	ResourceLoader resourceLoader =
-		ResourceLoader::GetForCurrentView(CommonSharedConstants::APP_RESOURCE_MAP_ID);
-	const hstring errorStr = resourceLoader.GetString(L"AppSettings_Dialog_Error");
-	const hstring exitStr = resourceLoader.GetString(L"AppSettings_Dialog_Exit");
+	LocalizationService& ls = LocalizationService::Get();
+	const winrt::hstring errorStr = ls.GetLocalizedString(L"AppSettings_Dialog_Error");
+	const winrt::hstring exitStr = ls.GetLocalizedString(L"AppSettings_Dialog_Exit");
 
 	TASKDIALOG_BUTTON button{ IDCANCEL, exitStr.c_str() };
 	TASKDIALOGCONFIG tdc{
@@ -202,22 +200,20 @@ AppSettings& AppSettings::Get() noexcept {
 AppSettings::~AppSettings() {}
 
 bool AppSettings::Initialize() noexcept {
-	Logger& logger = Logger::Get();
-
 	// 若程序所在目录存在配置文件则为便携模式
 	_isPortableMode = Win32Helper::FileExists(StrHelper::Concat(
 		CommonSharedConstants::CONFIG_DIR, L"\\", CommonSharedConstants::CONFIG_FILENAME).c_str());
 
 	std::filesystem::path existingConfigPath;
 	if (!_UpdateConfigPath(&existingConfigPath)) {
-		logger.Error("_UpdateConfigPath 失败");
+		Logger::Get().Error("_UpdateConfigPath 失败");
 		return false;
 	}
 
-	logger.Info(StrHelper::Concat("便携模式: ", _isPortableMode ? "是" : "否"));
+	Logger::Get().Info(StrHelper::Concat("便携模式: ", _isPortableMode ? "是" : "否"));
 
 	if (existingConfigPath.empty()) {
-		logger.Info("不存在配置文件");
+		Logger::Get().Info("不存在配置文件");
 		_SetDefaultScalingModes();
 		_SetDefaultShortcuts();
 		SaveAsync();
@@ -228,11 +224,10 @@ bool AppSettings::Initialize() noexcept {
 	
 	std::string configText;
 	if (!Win32Helper::ReadTextFile(existingConfigPath.c_str(), configText)) {
-		logger.Error("读取配置文件失败");
-		ResourceLoader resourceLoader =
-			ResourceLoader::GetForCurrentView(CommonSharedConstants::APP_RESOURCE_MAP_ID);
-		hstring title = resourceLoader.GetString(L"AppSettings_ErrorDialog_ReadFailed");
-		hstring content = resourceLoader.GetString(L"AppSettings_ErrorDialog_ConfigLocation");
+		Logger::Get().Error("读取配置文件失败");
+		LocalizationService& ls = LocalizationService::Get();
+		winrt::hstring title = ls.GetLocalizedString(L"AppSettings_ErrorDialog_ReadFailed");
+		winrt::hstring content = ls.GetLocalizedString(L"AppSettings_ErrorDialog_ConfigLocation");
 		ShowErrorMessage(title.c_str(),
 			fmt::format(fmt::runtime(std::wstring_view(content)), existingConfigPath.native()).c_str());
 		return false;
@@ -250,10 +245,9 @@ bool AppSettings::Initialize() noexcept {
 	doc.ParseInsitu(configText.data());
 	if (doc.HasParseError()) {
 		Logger::Get().Error(fmt::format("解析配置失败\n\t错误码: {}", (int)doc.GetParseError()));
-		ResourceLoader resourceLoader =
-			ResourceLoader::GetForCurrentView(CommonSharedConstants::APP_RESOURCE_MAP_ID);
-		hstring title = resourceLoader.GetString(L"AppSettings_ErrorDialog_NotValidJson");
-		hstring content = resourceLoader.GetString(L"AppSettings_ErrorDialog_ConfigLocation");
+		LocalizationService& ls = LocalizationService::Get();
+		hstring title = ls.GetLocalizedString(L"AppSettings_ErrorDialog_NotValidJson");
+		hstring content = ls.GetLocalizedString(L"AppSettings_ErrorDialog_ConfigLocation");
 		ShowErrorMessage(title.c_str(),
 			fmt::format(fmt::runtime(std::wstring_view(content)), existingConfigPath.native()).c_str());
 		return false;
@@ -261,10 +255,9 @@ bool AppSettings::Initialize() noexcept {
 
 	if (!doc.IsObject()) {
 		Logger::Get().Error("配置文件根元素不是 Object");
-		ResourceLoader resourceLoader =
-			ResourceLoader::GetForCurrentView(CommonSharedConstants::APP_RESOURCE_MAP_ID);
-		hstring title = resourceLoader.GetString(L"AppSettings_ErrorDialog_ParseFailed");
-		hstring content = resourceLoader.GetString(L"AppSettings_ErrorDialog_ConfigLocation");
+		LocalizationService& ls = LocalizationService::Get();
+		hstring title = ls.GetLocalizedString(L"AppSettings_ErrorDialog_ParseFailed");
+		hstring content = ls.GetLocalizedString(L"AppSettings_ErrorDialog_ConfigLocation");
 		ShowErrorMessage(title.c_str(),
 			fmt::format(fmt::runtime(std::wstring_view(content)), existingConfigPath.native()).c_str());
 		return false;
@@ -588,7 +581,7 @@ rapidjson::StringBuffer AppSettings::_WriteConfigJson() const noexcept {
 	if (_language < 0) {
 		writer.String("");
 	} else {
-		const wchar_t* language = LocalizationService::SupportedLanguages()[_language];
+		const wchar_t* language = LocalizationService::GetSupportedLanguages()[_language];
 		writer.String(StrHelper::UTF16ToUTF8(language).c_str());
 	}
 
@@ -714,7 +707,7 @@ void AppSettings::_LoadSettings(const rapidjson::GenericObject<true, rapidjson::
 			_language = -1;
 		} else {
 			StrHelper::ToLowerCase(language);
-			std::span<const wchar_t*> languages = LocalizationService::SupportedLanguages();
+			std::span<const wchar_t*> languages = LocalizationService::GetSupportedLanguages();
 			auto it = std::find(languages.begin(), languages.end(), language);
 			if (it == languages.end()) {
 				// 未知的语言设置，重置为使用系统设置
@@ -765,7 +758,7 @@ void AppSettings::_LoadSettings(const rapidjson::GenericObject<true, rapidjson::
 				// 如果窗口位置不存在屏幕则使用主屏幕的缩放，猜错的后果仅是窗口尺寸错误，
 				// 无论如何原始缩放信息已经丢失。
 				const HMONITOR hMon = MonitorFromPoint(
-					{ std::lroundf(_mainWindowCenter.X), std::lroundf(_mainWindowCenter.Y) },
+					{ std::lround(_mainWindowCenter.X), std::lround(_mainWindowCenter.Y) },
 					MONITOR_DEFAULTTOPRIMARY
 				);
 

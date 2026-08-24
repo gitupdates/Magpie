@@ -54,7 +54,7 @@ wil::unique_process_handle Win32Helper::GetWindowProcessHandle(HWND hWnd) noexce
 
 	// 在某些窗口上 OpenProcess 会失败（如暗黑 2），尝试使用 GetProcessHandleFromHwnd
 	static const auto getProcessHandleFromHwnd =
-		Win32Helper::LoadSystemFunction<HANDLE WINAPI(HWND)>(L"Oleacc.dll", "GetProcessHandleFromHwnd");
+		Win32Helper::LoadFunction<HANDLE WINAPI(HWND)>(L"Oleacc.dll", "GetProcessHandleFromHwnd");
 	if (!getProcessHandleFromHwnd) {
 		return result;
 	}
@@ -231,7 +231,7 @@ int16_t Win32Helper::AdvancedWindowHitTest(HWND hWnd, POINT ptScreen, UINT timeo
 
 			// 检查是否在窗口内
 			RECT windowRect;
-			if (!GetWindowRect(hWnd, &windowRect) || !PtInRect(&windowRect, data->ptScreen)) {
+			if (!GetWindowRect(hWnd, &windowRect) || !PtInRect(windowRect, data->ptScreen)) {
 				return TRUE;
 			}
 
@@ -398,39 +398,47 @@ bool Win32Helper::DirExists(const wchar_t* fileName) noexcept {
 }
 
 bool Win32Helper::CreateDir(const std::wstring& path, bool recursive) noexcept {
-	assert(!path.empty());
-
+	assert(!path.empty() && path.find(L'/') == std::wstring::npos);
+	
 	if (DirExists(path.c_str())) {
 		return true;
 	}
 
-	if (!recursive) {
-		return CreateDirectory(path.c_str(), nullptr);
+	if (recursive) {
+		// 创建中间目录
+		size_t searchOffset = 0;
+		std::wstring subDir;
+		while (true) {
+			size_t segPos = path.find(L'\\', searchOffset);
+			if (segPos == std::wstring::npos) {
+				break;
+			}
+
+			searchOffset = segPos + 1;
+			if (searchOffset == path.size()) {
+				break;
+			}
+
+			subDir = path.substr(0, segPos);
+			if (!CreateDirectory(subDir.c_str(), nullptr) && GetLastError() != ERROR_ALREADY_EXISTS) {
+				Logger::Get().Win32Error("CreateDirectory 失败");
+				return false;
+			}
+		}
 	}
 
-	size_t searchOffset = 0;
-	do {
-		auto segPos = path.find_first_of(L'\\', searchOffset);
-		if (segPos == std::wstring::npos) {
-			// 没有分隔符则将整个路径视为文件夹
-			segPos = path.size();
-		}
-
-		std::wstring subdir = path.substr(0, segPos);
-		if (!subdir.empty() && !DirExists(subdir.c_str()) && !CreateDirectory(subdir.c_str(), nullptr)) {
-			return false;
-		}
-
-		searchOffset = segPos + 1;
-	} while (searchOffset < path.size());
-
-	return true;
+	if (CreateDirectory(path.c_str(), nullptr) || GetLastError() == ERROR_ALREADY_EXISTS) {
+		return true;
+	} else {
+		Logger::Get().Win32Error("CreateDirectory 失败");
+		return false;
+	}
 }
 
 const Win32Helper::OSVersion& Win32Helper::GetOSVersion() noexcept {
 	static OSVersion version = [] {
 		const auto rtlGetVersion =
-			LoadSystemFunction<LONG WINAPI(PRTL_OSVERSIONINFOW)>(L"ntdll.dll", "RtlGetVersion");
+			LoadFunction<LONG WINAPI(PRTL_OSVERSIONINFOW)>(L"ntdll.dll", "RtlGetVersion");
 		if (!rtlGetVersion) {
 			return OSVersion();
 		}
@@ -889,17 +897,13 @@ void Win32Helper::WaitForDwmComposition() noexcept {
 	// Win11 可以使用准确的 DCompositionWaitForCompositorClock
 	if (Win32Helper::GetOSVersion().IsWin11()) {
 		static const auto dCompositionWaitForCompositorClock =
-			Win32Helper::LoadSystemFunction<decltype(DCompositionWaitForCompositorClock)>(
+			Win32Helper::LoadFunction<decltype(DCompositionWaitForCompositorClock)>(
 				L"dcomp.dll", "DCompositionWaitForCompositorClock");
 		if (dCompositionWaitForCompositorClock) {
 			dCompositionWaitForCompositorClock(0, nullptr, INFINITE);
 			return;
 		}
 	}
-
-	LARGE_INTEGER qpf;
-	QueryPerformanceFrequency(&qpf);
-	qpf.QuadPart /= 10000000;
 
 	DWM_TIMING_INFO info{};
 	info.cbSize = sizeof(info);
@@ -912,11 +916,15 @@ void Win32Helper::WaitForDwmComposition() noexcept {
 		return;
 	}
 
+	LARGE_INTEGER qpf;
+	QueryPerformanceFrequency(&qpf);
+
 	// 提前 1ms 结束然后忙等待
-	time.QuadPart += 10000;
+	time.QuadPart += qpf.QuadPart / 1000;
+
 	if (time.QuadPart < (LONGLONG)info.qpcCompose) {
 		LARGE_INTEGER liDueTime{
-			.QuadPart = -((LONGLONG)info.qpcCompose - time.QuadPart) / qpf.QuadPart
+			.QuadPart = -wil::filetime_duration::one_second * ((LONGLONG)info.qpcCompose - time.QuadPart) / qpf.QuadPart
 		};
 		static HANDLE timer = CreateWaitableTimerEx(nullptr, nullptr,
 			CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);

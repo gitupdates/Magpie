@@ -5,6 +5,7 @@
 #include "EffectDesc.h"
 #include "FrameSourceBase.h"
 #include "ImGuiFontsCacheManager.h"
+#include "LocalizationService.h"
 #include "Logger.h"
 #include "OverlayHelper.h"
 #include "Renderer.h"
@@ -289,7 +290,7 @@ bool OverlayDrawer::_BuildFonts() noexcept {
 			return false;
 		}
 	} else {
-		const uint32_t dpi = (uint32_t)std::lroundf(_dpiScale * USER_DEFAULT_SCREEN_DPI);
+		const uint32_t dpi = (uint32_t)std::lround(_dpiScale * USER_DEFAULT_SCREEN_DPI);
 		if (ImGuiFontsCacheManager::Get().Load(language, dpi, fontAtlas)) {
 			_fontUI = fontAtlas.Fonts[0];
 			_fontMonoNumbers = fontAtlas.Fonts[1];
@@ -613,7 +614,7 @@ void OverlayDrawer::_DrawTimelineItem(
 	ImGui::PopStyleColor(3);
 
 	if (ImGui::IsItemHovered() || ImGui::IsItemClicked()) {
-		std::string content = fmt::format("{}\n{:.3f} ms\n{}%", name, time, std::lroundf(time / effectsTotalTime * 100));
+		std::string content = fmt::format("{}\n{:.3f} ms\n{}%", name, time, std::lround(time / effectsTotalTime * 100));
 		ImGui::PushFont(_fontMonoNumbers);
 		_imguiImpl.Tooltip(content.c_str(), _dpiScale, nullptr, 500 * dpiScale);
 		ImGui::PopFont();
@@ -622,7 +623,7 @@ void OverlayDrawer::_DrawTimelineItem(
 	// 空间足够时显示文字
 	std::string text;
 	if (selected) {
-		text = fmt::format("{}%", std::lroundf(time / effectsTotalTime * 100));
+		text = fmt::format("{}%", std::lround(time / effectsTotalTime * 100));
 	} else {
 		text.assign(name);
 	}
@@ -1301,7 +1302,8 @@ const std::string& OverlayDrawer::_GetResourceString(const std::wstring_view& ke
 		return it->second;
 	}
 
-	return cache[key] = StrHelper::UTF16ToUTF8(ScalingWindow::Get().GetLocalizedString(key));
+	LocalizationService& ls = LocalizationService::Get();
+	return cache[key] = StrHelper::UTF16ToUTF8(ls.GetLocalizedString(key));
 }
 
 float OverlayDrawer::_CalcToolbarAlpha() const noexcept {
